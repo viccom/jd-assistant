@@ -172,13 +172,15 @@ class Assistant(object):
         }
 
     @deprecated
-    def login_by_username(self):
+    def login_by_username(self, usr, usrpwd):
         if self.is_login:
             logger.info('登录成功')
             return True
 
-        username = input('账号:')
-        password = input('密码:')
+        username = usr
+        password = usrpwd
+        # username = input('账号:')
+        # password = input('密码:')
         if (not username) or (not password):
             logger.error('用户名或密码不能为空')
             return False
@@ -322,7 +324,7 @@ class Assistant(object):
         """
         if self.is_login:
             logger.info('登录成功')
-            return
+            return True
 
         self._get_login_page()
 
@@ -375,16 +377,23 @@ class Assistant(object):
         reserve_url = self._get_reserve_url(sku_id)
         if not reserve_url:
             logger.error('%s 非预约商品', sku_id)
-            return
+            return False
         headers = {
             'User-Agent': self.user_agent,
             'Referer': 'https://item.jd.com/{}.html'.format(sku_id),
         }
         resp = self.sess.get(url=reserve_url, headers=headers)
         soup = BeautifulSoup(resp.text, "html.parser")
-        reserve_result = soup.find('p', {'class': 'bd-right-result'}).text.strip(' \t\r\n')
+        reserve_result = None
+        try:
+            reserve_result = soup.find('p', {'class': 'bd-right-result'}).text.strip(' \t\r\n')
+        except Exception as ex:
+            logger.error('error')
+            return False
         # 预约成功，已获得抢购资格 / 您已成功预约过了，无需重复预约
-        logger.info(reserve_result)
+        finally:
+            logger.info(reserve_result)
+            return True
 
     @check_login
     def get_user_info(self):
@@ -406,8 +415,8 @@ class Assistant(object):
             # many user info are included in response, now return nick name in it
             # jQuery2381773({"imgUrl":"//storage.360buyimg.com/i.imageUpload/xxx.jpg","lastLoginTime":"","nickName":"xxx","plusStatus":"0","realName":"xxx","userLevel":x,"userScoreVO":{"accountScore":xx,"activityScore":xx,"consumptionScore":xxxxx,"default":false,"financeScore":xxx,"pin":"xxx","riskScore":x,"totalScore":xxxxx}})
             return resp_json.get('nickName') or 'jd'
-        except Exception:
-            return 'jd'
+        except Exception as ex:
+            return str(ex)
 
     def _get_item_detail_page(self, sku_id):
         """访问商品详情页
@@ -652,8 +661,10 @@ class Assistant(object):
 
             if result:
                 logger.info('%s x %s 已成功加入购物车', sku_id, count)
+                return True
             else:
                 logger.error('%s 添加到购物车失败', sku_id)
+                return False
 
     @check_login
     def clear_cart(self):
