@@ -3,5 +3,6 @@ __pycache__/
 cookies/
 venv/
 
+config.ini
 *.log
 *.png
